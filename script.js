@@ -1,7 +1,6 @@
 const cryptoApiKey = 'caef2fba-7a9d-4c15-834a-e3be38796e4e'; // API key dari CoinMarketCap
 const stockApiKey = 'cpsi6vhr01qkode1hlagcpsi6vhr01qkode1hlb0'; // API key dari Finhub.io
-const stocks = ['AAPL', 'GOOGL']; // Daftar saham yang ingin ditampilkan
-const cryptos = ['BTC', 'ETH']; // Daftar cryptocurrency yang ingin ditampilkan
+const stockExchange = 'IDX'; // Kode untuk Bursa Efek Indonesia
 
 // Fungsi untuk membuat chart
 function createChart(ctx, labels, data, title) {
@@ -46,29 +45,34 @@ async function getStockPrices() {
     const pricesDiv = document.getElementById('prices');
     pricesDiv.innerHTML = ''; // Mengosongkan div sebelum menambahkan data baru
 
-    for (let stock of stocks) {
-        try {
-            const response = await fetch(`https://finnhub.io/api/v1/quote?symbol=${stock}&token=${stockApiKey}`);
-            const data = await response.json();
+    try {
+        const response = await fetch(`https://finnhub.io/api/v1/stock/symbol?exchange=${stockExchange}&token=${stockApiKey}`);
+        const stocks = await response.json();
+
+        for (let stock of stocks) {
+            const stockSymbol = stock.symbol;
+            const stockResponse = await fetch(`https://finnhub.io/api/v1/quote?symbol=${stockSymbol}&token=${stockApiKey}`);
+            const data = await stockResponse.json();
+
             const priceDiv = document.createElement('div');
             priceDiv.className = 'col-md-6 price';
             priceDiv.innerHTML = `
-                <h3>${stock}</h3>
+                <h3>${stockSymbol}</h3>
                 <p>Price: $${data.c}</p>
                 <div class="chart-container">
-                    <canvas id="chart-${stock}"></canvas>
+                    <canvas id="chart-${stockSymbol}"></canvas>
                 </div>
             `;
             pricesDiv.appendChild(priceDiv);
 
             // Membuat chart
-            const ctx = document.getElementById(`chart-${stock}`).getContext('2d');
+            const ctx = document.getElementById(`chart-${stockSymbol}`).getContext('2d');
             const labels = []; // Array untuk label waktu
             const prices = []; // Array untuk harga
 
             // Update chart setiap 10 detik
             setInterval(async () => {
-                const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${stock}&token=${stockApiKey}`);
+                const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${stockSymbol}&token=${stockApiKey}`);
                 const newData = await res.json();
                 const currentTime = new Date();
 
@@ -83,11 +87,11 @@ async function getStockPrices() {
                 }
 
                 // Perbarui chart
-                createChart(ctx, labels, prices, `${stock} Price`);
+                createChart(ctx, labels, prices, `${stockSymbol} Price`);
             }, 10000);
-        } catch (error) {
-            console.error('Error fetching stock prices:', error);
         }
+    } catch (error) {
+        console.error('Error fetching stock prices:', error);
     }
 }
 
@@ -95,20 +99,22 @@ async function getStockPrices() {
 async function getCryptoPrices() {
     const pricesDiv = document.getElementById('prices');
 
-    for (let crypto of cryptos) {
-        try {
-            const response = await fetch(`https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${crypto}`, {
-                headers: {
-                    'X-CMC_PRO_API_KEY': cryptoApiKey
-                }
-            });
-            const data = await response.json();
-            const symbol = crypto.toUpperCase();
+    try {
+        const response = await fetch(`https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest`, {
+            headers: {
+                'X-CMC_PRO_API_KEY': cryptoApiKey
+            }
+        });
+        const data = await response.json();
+        const cryptos = data.data;
+
+        for (let crypto of cryptos) {
+            const symbol = crypto.symbol;
             const priceDiv = document.createElement('div');
             priceDiv.className = 'col-md-6 price';
             priceDiv.innerHTML = `
                 <h3>${symbol}</h3>
-                <p>Price: $${data.data[symbol].quote.USD.price}</p>
+                <p>Price: $${crypto.quote.USD.price}</p>
                 <div class="chart-container">
                     <canvas id="chart-${symbol}"></canvas>
                 </div>
@@ -122,7 +128,7 @@ async function getCryptoPrices() {
 
             // Update chart setiap 10 detik
             setInterval(async () => {
-                const res = await fetch(`https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${crypto}`, {
+                const res = await fetch(`https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${symbol}`, {
                     headers: {
                         'X-CMC_PRO_API_KEY': cryptoApiKey
                     }
@@ -143,9 +149,9 @@ async function getCryptoPrices() {
                 // Perbarui chart
                 createChart(ctx, labels, prices, `${symbol} Price`);
             }, 10000);
-        } catch (error) {
-            console.error('Error fetching crypto prices:', error);
         }
+    } catch (error) {
+        console.error('Error fetching crypto prices:', error);
     }
 }
 
@@ -155,12 +161,9 @@ function recommend() {
     recommendationsDiv.innerHTML = ''; // Mengosongkan div sebelum menambahkan rekomendasi baru
 
     // Logika sederhana untuk rekomendasi
-    const randomStock = stocks[Math.floor(Math.random() * stocks.length)];
-    const randomCrypto = cryptos[Math.floor(Math.random() * cryptos.length)].toUpperCase();
-
     const recommendationDiv = document.createElement('div');
     recommendationDiv.className = 'col-md-6 recommendation';
-    recommendationDiv.innerHTML = `<h3>Buy ${Math.random() > 0.5 ? randomStock : randomCrypto}</h3>`;
+    recommendationDiv.innerHTML = `<h3>Buy Random Stock or Crypto</h3>`;
     recommendationsDiv.appendChild(recommendationDiv);
 }
 
